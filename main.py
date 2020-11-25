@@ -51,34 +51,6 @@ def attachPDF(filePath):
 		file_name = f.name
 	msg.add_attachment(file_data, maintype='application', subtype='octet-stream', filename = file_name)
 
-
-"""# Create an object of sendpdf function  
-k = sendpdf(sender_email_address,  
-            receiver_email_address, 
-            sender_email_password, 
-            subject_of_email, 
-            body_of_email, 
-            filename, 
-            location_of_file) 
-  
-# sending an email 
-k.email_send()"""
-#msg.attach(MIMEText(open("sampleFile.pdf").read()))
-# with open('test.jpg','rb') as f:
-# 	file_data = f.read()
-# msg.add_attachment(file_data)
-
-# with open('test.jpg','rb') as f:
-# 	file_data2 = f.read()
-# 	file_type2 = imghdr.what(f.name)
-# 	file_name2 = f.name
-# 	#print(file_type)
-#
-# msg.add_attachment(file_data2, maintype='image', subtype=file_type2, filename = file_name2)
-attachImage('test.jpg')
-attachPDF('sampleFile.pdf')
-
-with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-	smtp.login(EMAIL_USER, EMAIL_PASSWORD)
-	smtp.send_message(msg)
-#=======================================================================#
+def sendPDF(filePath):
+	attachPDF(filePath)
+sendPDF('sampleFile.pdf')
