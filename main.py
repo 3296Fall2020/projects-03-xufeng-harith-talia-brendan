@@ -17,13 +17,13 @@ msg.set_content('A package has been delivered at your door from (EXACT TYPE OF C
 
 #Section to convert a text file to a pdf
 #======================================================================#
-def txtToPDF(txtFile):
+def txtToPDF(filePath):
 
 	pdf = FPDF()
 	pdf.add_page()
 	pdf.set_font("Arial", size = 10)
 
-	f = open(txtFile, "r")
+	f = open(filePath, "r")
 	for i in f:
 		pdf.cell(0,txt = i, ln = 1)
 
@@ -58,6 +58,12 @@ def sendPDF(filePath):
 	attachPDF(filePath)
 sendPDF('sampleFile.pdf')
 
+# def sendAttachments(imgPath, pdfPath):
+# 	sendIMG(imgPath)
+# 	#newPDF = txtToPDF(pdfPath)
+# 	sendPDF(pdfPath)
+#
+# sendAttachments('test.jpg', txtFile)
 """# Create an object of sendpdf function  
 k = sendpdf(sender_email_address,  
             receiver_email_address, 
@@ -69,20 +75,6 @@ k = sendpdf(sender_email_address,
   
 # sending an email 
 k.email_send()"""
-#msg.attach(MIMEText(open("sampleFile.pdf").read()))
-# with open('test.jpg','rb') as f:
-# 	file_data = f.read()
-# msg.add_attachment(file_data)
-
-# with open('test.jpg','rb') as f:
-# 	file_data2 = f.read()
-# 	file_type2 = imghdr.what(f.name)
-# 	file_name2 = f.name
-# 	#print(file_type)
-#
-# msg.add_attachment(file_data2, maintype='image', subtype=file_type2, filename = file_name2)
-attachImage('test.jpg')
-
 
 with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
 	smtp.login(EMAIL_USER, EMAIL_PASSWORD)
