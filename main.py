@@ -27,7 +27,7 @@ def txtToPDF(filePath):
 	for i in f:
 		pdf.cell(0,txt = i, ln = 1)
 
-	return pdf.output("sampleFile.pdf")
+	return pdf.output("output.pdf")
 
 txtFile= "/Users/harith.siddiqui754/PycharmProjects/kkEmail/sampleFile.txt"
 txtToPDF(txtFile)
@@ -45,7 +45,7 @@ def attachImage(filePath):
 	msg.add_attachment(file_data, maintype='image', subtype=file_type, filename=file_name)
 def sendIMG(filePath):
 	attachImage(filePath)
-sendIMG('test.jpg')
+#sendIMG('test.jpg')
 
 #Attaches the pdf
 def attachPDF(filePath):
@@ -56,27 +56,11 @@ def attachPDF(filePath):
 
 def sendPDF(filePath):
 	attachPDF(filePath)
-sendPDF('sampleFile.pdf')
+#sendPDF('sampleFile.pdf')
 
-# def sendAttachments(imgPath, pdfPath):
-# 	sendIMG(imgPath)
-# 	#newPDF = txtToPDF(pdfPath)
-# 	sendPDF(pdfPath)
-#
-# sendAttachments('test.jpg', txtFile)
-"""# Create an object of sendpdf function  
-k = sendpdf(sender_email_address,  
-            receiver_email_address, 
-            sender_email_password, 
-            subject_of_email, 
-            body_of_email, 
-            filename, 
-            location_of_file) 
-  
-# sending an email 
-k.email_send()"""
+def sendAttachments(imgPath, pdfPath):
+	sendIMG(imgPath)
+	#newPDF = txtToPDF(pdfPath)
+	sendPDF(pdfPath)
 
-with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-	smtp.login(EMAIL_USER, EMAIL_PASSWORD)
-	smtp.send_message(msg)
-#=======================================================================#
+sendAttachments('test.jpg', 'output.pdf')
