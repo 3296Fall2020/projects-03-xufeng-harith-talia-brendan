@@ -3,7 +3,11 @@ import smtplib
 from email.message import EmailMessage
 import imghdr
 from email.mime.text import MIMEText
-
+import cv2
+import numpy as np
+import time
+import darknet
+from setEmail import email
 from fpdf import FPDF
 
 EMAIL_USER = "knockknockcis3296@gmail.com"
@@ -64,3 +68,46 @@ def sendAttachments(imgPath, pdfPath):
 	sendPDF(pdfPath)
 
 sendAttachments('test.jpg', 'output.pdf')
+
+
+############################
+#write detections to log file
+############################
+
+
+
+
+#################################################
+#Rules to decide if an detected object is valid
+#rule 1: confident bigger or equal to 85%?
+#rule 2: 
+#################################################
+
+
+
+
+##################################
+#The main part
+##################################
+def main():
+    #perform detection
+    configPath = "./cfg/knockknock_cfg.cfg"
+    weightPath = "./knockknock_cfg_best.weights"
+    metaPath = "./cfg/obj.data"
+    
+    #decide input source
+    cap = cv2.VideoCapture("")#<-enter input video address here    
+    RTSP_URL = #enter RTSP URL here if using a camear
+    cap = cv2.VedeoCapture(RTSP_URL)
+    
+    #set output video footage
+    
+    #a reuse image for each detection
+    
+    #loop through the video
+        #a detection go through the rule
+        #a detection go to send email and log if pass the rule
+        
+if __name__ == "__main__":
+  main()
+
