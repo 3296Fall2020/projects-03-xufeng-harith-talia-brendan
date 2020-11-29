@@ -21,7 +21,9 @@ EMAIL_PASSWORD = "Cis3296!"
 msg = EmailMessage()
 msg['Subject'] = 'Delivery detected'
 msg['From'] = EMAIL_USER
-msg['To'] = 'tug84792@temple.edu'
+with open('userEmail.txt','r') as userEmail:
+	emailAddress = userEmail.read()
+msg['To'] = emailAddress
 msg.set_content('A delivery at your door was detected at ' + current_time+ '. Please check attached text file for more information!')
 
 #Section to convert a text file to a pdf
@@ -114,20 +116,74 @@ def main():
     configPath = "./cfg/knockknock_cfg.cfg"
     weightPath = "./knockknock_cfg_best.weights"
     metaPath = "./cfg/obj.data"
-    
+     if not os.path.exists(configPath):
+        raise ValueError("Invalid config path `" +
+                         os.path.abspath(configPath)+"`")
+    if not os.path.exists(weightPath):
+        raise ValueError("Invalid weight path `" +
+                         os.path.abspath(weightPath)+"`")
+    if not os.path.exists(metaPath):
+        raise ValueError("Invalid data file path `" +
+                         os.path.abspath(metaPath)+"`")
+    if netMain is None:
+        netMain = darknet.load_net_custom(configPath.encode(
+            "ascii"), weightPath.encode("ascii"), 0, 1)  # batch size = 1
+    if metaMain is None:
+        metaMain = darknet.load_meta(metaPath.encode("ascii"))
+    if altNames is None:
+        try:
+            with open(metaPath) as metaFH:
+                metaContents = metaFH.read()
+                import re
+                match = re.search("names *= *(.*)$", metaContents,
+                                  re.IGNORECASE | re.MULTILINE)
+                if match:
+                    result = match.group(1)
+                else:
+                    result = None
+                try:
+                    if os.path.exists(result):
+                        with open(result) as namesFH:
+                            namesList = namesFH.read().strip().split("\n")
+                            altNames = [x.strip() for x in namesList]
+                except TypeError:
+                    pass
+        except Exception:
+            pass
     #decide input source
-    cap = cv2.VideoCapture("")#<-enter input video address here    
-    RTSP_URL = #enter RTSP URL here if using a camear
-    cap = cv2.VedeoCapture(RTSP_URL)
+    cap = cv2.VideoCapture("")#<-enter input video address here
     
+    #Uncomment below to get video from camera
+    #RTSP_URL = #enter RTSP URL here if using a camear
+    #cap = cv2.VedeoCapture(RTSP_URL)
+
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    new_height, new_width = frame_height // 2, frame_width // 2
     #set output video footage
-    
+     out = cv2.VideoWriter("./output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 10.0,(new_width, new_height))
     #a reuse image for each detection
-    
+    darknet_image = darknet.make_image(new_width, new_height, 3)
     #loop through the video
+    while True:
+    	prev_time = time.time()
+    	ret, frame_read = cap.read()
+    	# if no more frame can be read, end loop
+    	if not ret:
+        	break
+        frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb,
+                                   (new_width, new_height),
+                                   interpolation=cv2.INTER_LINEAR)
+
+        darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())
+	detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.25)
         #a detection go through the rule
+	 for label, confidence, bbox in detections:
+		confidence = str(round(confidence * 100, 2))
+	    	if confidence > 80:
+	    		logging(label, confidence)
         #a detection go to send email and log if pass the rule
-        
 if __name__ == "__main__":
   main()
 
