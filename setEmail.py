@@ -2,3 +2,5 @@
 import os
 
 email = input("Enter email address: \n")
+with open('projects-03-xufeng-harith-talia-brendan/userEmail.txt','w') as file:
+   file.write(email)
