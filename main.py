@@ -10,6 +10,18 @@ import darknet
 from setEmail import email
 from fpdf import FPDF
 
+
+from datetime import datetime
+
+now = datetime.now()
+
+current_time = now.strftime("%H:%M:%S")
+
+def formatMessage(courierType):
+	message = 'A package has been delivered at your door from ' + courierType +' at ' + current_time
+	return message
+
+
 EMAIL_USER = "knockknockcis3296@gmail.com"
 EMAIL_PASSWORD = "Cis3296!"
 
@@ -17,7 +29,7 @@ msg = EmailMessage()
 msg['Subject'] = 'Delivery detected'
 msg['From'] = EMAIL_USER
 msg['To'] = 'tug84792@temple.edu'
-msg.set_content('A package has been delivered at your door from (EXACT TYPE OF COURIER)')
+msg.set_content(formatMessage('Amazon'))
 
 #Section to convert a text file to a pdf
 #======================================================================#
@@ -29,15 +41,13 @@ def txtToPDF(filePath):
 
 	f = open(filePath, "r")
 	for i in f:
-		pdf.cell(0,txt = i, ln = 1)
+		pdf.cell(0,txt = i, ln = 2)
 
 	return pdf.output("output.pdf")
 
-txtFile= "/Users/harith.siddiqui754/PycharmProjects/kkEmail/sampleFile.txt"
-txtToPDF(txtFile)
 #=======================================================================#
 
-#Section to send an email
+#Section to prepare sending an email
 #=======================================================================#
 
 #This section attaches an image to the email
@@ -49,9 +59,8 @@ def attachImage(filePath):
 	msg.add_attachment(file_data, maintype='image', subtype=file_type, filename=file_name)
 def sendIMG(filePath):
 	attachImage(filePath)
-#sendIMG('test.jpg')
 
-#Attaches the pdf
+#Attaches the pdf to the email
 def attachPDF(filePath):
 	with open(filePath,'rb') as f:
 		file_data = f.read()
@@ -60,14 +69,32 @@ def attachPDF(filePath):
 
 def sendPDF(filePath):
 	attachPDF(filePath)
-#sendPDF('sampleFile.pdf')
 
+#Method to send email with attachments as parameters
 def sendAttachments(imgPath, pdfPath):
 	sendIMG(imgPath)
-	#newPDF = txtToPDF(pdfPath)
 	sendPDF(pdfPath)
 
-sendAttachments('test.jpg', 'output.pdf')
+txtFile= "/Users/harith.siddiqui754/PycharmProjects/kkEmail/sampleFile.txt"
+#txtToPDF(txtFile)
+
+sendAttachments('test.jpg', txtFile)
+"""# Create an object of sendpdf function  
+k = sendpdf(sender_email_address,  
+            receiver_email_address, 
+            sender_email_password, 
+            subject_of_email, 
+            body_of_email, 
+            filename, 
+            location_of_file) 
+  
+# sending an email 
+k.email_send()"""
+
+with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+	smtp.login(EMAIL_USER, EMAIL_PASSWORD)
+	smtp.send_message(msg)
+#=======================================================================#
 
 
 ############################
