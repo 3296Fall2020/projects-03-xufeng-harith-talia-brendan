@@ -70,10 +70,8 @@ def sendAttachments(imgPath, pdfPath):
 	sendIMG(imgPath)
 	sendPDF(pdfPath)
 
-txtFile= "/Users/harith.siddiqui754/PycharmProjects/kkEmail/sampleFile.txt"
-#txtToPDF(txtFile)
 
-sendAttachments('test.jpg', txtFile)
+#sendAttachments('test.jpg', txtFile)
 """# Create an object of sendpdf function  
 k = sendpdf(sender_email_address,  
             receiver_email_address, 
@@ -95,9 +93,10 @@ with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
 ############################
 #write detections to log file
 ############################
-def logging(label, confidence):
+def logging(label, confidence, imgPath):
     file = "detection_logs/"
     file += datetime.today().strftime('%Y-%m-%d')
+    txtFile = file
     f = open(file, "a")
     output = datetime.now().strftime('%H:%M') + "\n"
     if confidence >= 90:
@@ -107,6 +106,7 @@ def logging(label, confidence):
     output += "\t\t{}: {}% confident".format(label, confidence) + "\n"
     f.write(output)
     f.close
+    sendAttachments(imgPath, file)
 
 
 
@@ -194,7 +194,7 @@ def main():
 	 for label, confidence, bbox in detections:
 		confidence = str(round(confidence * 100, 2))
 	    	if confidence > 80:
-	    		logging(label, confidence)
+	    		logging(label, confidence, "predictions.jpg")
         #a detection go to send email and log if pass the rule
 if __name__ == "__main__":
   main()
