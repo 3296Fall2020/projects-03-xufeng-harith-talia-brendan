@@ -1,26 +1,19 @@
 import os
 import smtplib
-from email.message import EmailMessage
 import imghdr
-from email.mime.text import MIMEText
 import cv2
 import numpy as np
 import time
 import darknet
+
+from email.message import EmailMessage
+from email.mime.text import MIMEText
 from setEmail import email
 from fpdf import FPDF
-
-
 from datetime import datetime
 
 now = datetime.now()
-
 current_time = now.strftime("%H:%M:%S")
-
-def formatMessage(courierType):
-	message = 'A package has been delivered at your door from ' + courierType +' at ' + current_time
-	return message
-
 
 EMAIL_USER = "knockknockcis3296@gmail.com"
 EMAIL_PASSWORD = "Cis3296!"
@@ -29,7 +22,7 @@ msg = EmailMessage()
 msg['Subject'] = 'Delivery detected'
 msg['From'] = EMAIL_USER
 msg['To'] = 'tug84792@temple.edu'
-msg.set_content(formatMessage('Amazon'))
+msg.set_content('A delivery at your door was detected at ' + current_time+ '. Please check attached text file for more information!')
 
 #Section to convert a text file to a pdf
 #======================================================================#
