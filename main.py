@@ -95,6 +95,18 @@ with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
 ############################
 #write detections to log file
 ############################
+def logging(label, confidence):
+    file = "detection_logs/"
+    file += datetime.today().strftime('%Y-%m-%d')
+    f = open(file, "a")
+    output = datetime.now().strftime('%H:%M') + "\n"
+    if confidence >= 90:
+        output += "\tDelivery driver detected!\n"
+    else:
+        output += "\tDelivery driver may have been detected!\n"
+    output += "\t\t{}: {}% confident".format(label, confidence) + "\n"
+    f.write(output)
+    f.close
 
 
 
