@@ -5,14 +5,20 @@ import cv2
 import numpy as np
 import time
 import darknet
+import sys
 from email.message import EmailMessage
 from email.mime.text import MIMEText
 from fpdf import FPDF
 from datetime import datetime
-
+# Early exit
+if len(sys.argv)<2:
+	printf("Enter a video input path!")
+	exit()
+videoInput=sys.argv[1]
+#determine time
 now = datetime.now()
 current_time = now.strftime("%H:%M:%S")
-
+#email initialization
 EMAIL_USER = "knockknockcis3296@gmail.com"
 EMAIL_PASSWORD = "Cis3296!"
 msg = EmailMessage()
@@ -42,11 +48,9 @@ def txtToPDF(filePath):
 #Section to prepare sending an email
 #=======================================================================#
 def sendIMG(filePath):
-  print("sendIMG")
   attachImage(filePath)
 
 def attachImage(filePath):
-  print('attachImage')
   with open(filePath,'rb') as f:
     file_data=f.read()
     file_type=imghdr.what(f.name)
@@ -54,18 +58,16 @@ def attachImage(filePath):
     msg.add_attachment(file_data,maintype='image',subtype=file_type,filename=file_name)
 
 def sendPDF(filePath):
-  print("sendPDF")
   attachPDF(filePath)
 
 def attachPDF(filePath):
-  print("attachPDF")
   with open(filePath,'rb') as f:
     file_data=f.read()
     file_name=f.name
     msg.add_attachment(file_data,maintype='application',subtype='octet-stream',filename=file_name)
+
 #Method to send email with attachments as parameters
 def sendAttachments(imgPath, pdfPath,label,confidence):
-  print("sendAttachments")
   if confidence>float(89.9):
     msg.set_content('A '+label+' was detected at ' + current_time+ '. Please check attached text file for more information!')
   else:
@@ -113,9 +115,7 @@ def logging(label, confidence, imgPath):
 
 
 #################################################
-#Rules to decide if an detected object is valid
-#rule 1: confident bigger or equal to 85%?
-#rule 2: 
+# Drawing box on img according to the detection 
 #################################################
 def convertBack(x, y, w, h):
     xmin = int(round(x - (w / 2)))
@@ -160,7 +160,7 @@ def cvDrawBoxes(detections, img):
 #The main part
 ##################################
 def main():  
-    # global metaMain, netMain, altNames
+    # YOLO and darknetconfiguration
     configPath = "./cfg/knockknock_cfg.cfg"                                 # Path to cfg
     weightPath = "./knockknock_cfg_best.weights"                                 # Path to weights
     metaPath = "./data/obj.data"                                    # Path to meta data
@@ -182,7 +182,7 @@ def main():
    
     
     #cap = cv2.VideoCapture(0)                                      # Uncomment to use Webcam
-    cap = cv2.VideoCapture("./sampleData/usps03.avi")                             # Local Stored video detection - Set input video
+    cap = cv2.VideoCapture(videoInput)                             # Local Stored video detection - Set input video
     frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
     frame_height = int(cap.get(4))
     # Set out for video writer
@@ -192,9 +192,8 @@ def main():
         outputPath, cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
         (frame_width, frame_height))
 
-    print("Starting the YOLO loop...")
+    print("Analyze starts..")
 
-    # Create an image we reuse for each detect
     darknet_image = darknet.make_image(frame_width, frame_height, 3) # Create image according darknet for compatibility of network
     x=float(0)
     while True:                                                      # Load the input frame and write output frame.
@@ -220,35 +219,29 @@ def main():
         image = cvDrawBoxes(detections, frame_resized)               # Call the function cvDrawBoxes() for colored bounding box per class
         #print("line 126 pass")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # if detections:
-        #   print(detections[0][1])
+
 
         if detections:
           if float(detections[0][1])>x:
             snap=image
             detection=detections
             x=float(detections[0][1])
-            # x=x+1
-        # print(detections)
-        #print("line 128 pass")
+           
         # print(1/(time.time()-prev_time))
-        #print("line 130 pass")
         #cv2.imshow('Demo', image)                                    # Display Image window
-        #print("line 132 pass")
         cv2.waitKey(3)
         out.write(image)                                             # Write that frame into output video
     # print("detections[0]: " + str(detections[0][0]))
-    if snap.any():
-      snapPath="./results/"+fileName+".jpg"
-      cv2.imwrite(snapPath,snap)
     cap.release()                                                    # For releasing cap and out. 
     out.release()
-    label=str(detection[0][0])
-    confidence=float(detection[0][1])
-    if confidence>float(80):
-      # print("confidence > 80")
+    if x>float(80):
+      snapPath="./results/"+fileName+".jpg"
+      cv2.imwrite(snapPath,snap)
+      label=str(detection[0][0])
+      confidence=float(detection[0][1])
       logging(label,confidence,snapPath)
-    print(":::Video Write Completed")
+    
+    print("Analyze Completed")
 if __name__ == "__main__":
   main()
 
