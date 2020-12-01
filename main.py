@@ -15,14 +15,13 @@ current_time = now.strftime("%H:%M:%S")
 
 EMAIL_USER = "knockknockcis3296@gmail.com"
 EMAIL_PASSWORD = "Cis3296!"
-
 msg = EmailMessage()
 msg['Subject'] = 'Delivery detected'
 msg['From'] = EMAIL_USER
 with open('userEmail.txt','r') as userEmail:
 	emailAddress = userEmail.read()
 msg['To'] = emailAddress
-msg.set_content('A delivery at your door was detected at ' + current_time+ '. Please check attached text file for more information!')
+
 
 #Section to convert a text file to a pdf
 #======================================================================#
@@ -42,32 +41,40 @@ def txtToPDF(filePath):
 
 #Section to prepare sending an email
 #=======================================================================#
-
-#This section attaches an image to the email
-def attachImage(filePath):
-	with open(filePath, 'rb') as f:
-		file_data = f.read()
-		file_type = imghdr.what(f.name)
-		file_name = f.name
-	msg.add_attachment(file_data, maintype='image', subtype=file_type, filename=file_name)
 def sendIMG(filePath):
-	attachImage(filePath)
+  print("sendIMG")
+  attachImage(filePath)
 
-#Attaches the pdf to the email
-def attachPDF(filePath):
-	with open(filePath,'rb') as f:
-		file_data = f.read()
-		file_name = f.name
-	msg.add_attachment(file_data, maintype='application', subtype='octet-stream', filename = file_name)
+def attachImage(filePath):
+  print('attachImage')
+  with open(filePath,'rb') as f:
+    file_data=f.read()
+    file_type=imghdr.what(f.name)
+    file_name=f.name
+    msg.add_attachment(file_data,maintype='image',subtype=file_type,filename=file_name)
 
 def sendPDF(filePath):
-	attachPDF(filePath)
+  print("sendPDF")
+  attachPDF(filePath)
 
+def attachPDF(filePath):
+  print("attachPDF")
+  with open(filePath,'rb') as f:
+    file_data=f.read()
+    file_name=f.name
+    msg.add_attachment(file_data,maintype='application',subtype='octet-stream',filename=file_name)
 #Method to send email with attachments as parameters
-def sendAttachments(imgPath, pdfPath):
-	sendIMG(imgPath)
-	sendPDF(pdfPath)
-
+def sendAttachments(imgPath, pdfPath,label,confidence):
+  print("sendAttachments")
+  if confidence>float(89.9):
+    msg.set_content('A '+label+' was detected at ' + current_time+ '. Please check attached text file for more information!')
+  else:
+    msg.set_content('Looks like a '+label+' stopped by your door at ' + current_time+ '. Please check attached text file for more information!')
+  sendIMG(imgPath)
+  sendPDF(pdfPath)
+  with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+	  smtp.login(EMAIL_USER, EMAIL_PASSWORD)
+	  smtp.send_message(msg)
 
 #sendAttachments('test.jpg', txtFile)
 """# Create an object of sendpdf function  
@@ -82,11 +89,7 @@ k = sendpdf(sender_email_address,
 # sending an email 
 k.email_send()"""
 
-with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-	smtp.login(EMAIL_USER, EMAIL_PASSWORD)
-	smtp.send_message(msg)
 #=======================================================================#
-
 
 ############################
 #write detections to log file
@@ -104,7 +107,7 @@ def logging(label, confidence, imgPath):
     output += "\t\t{}: {}% confident".format(label, confidence) + "\n"
     f.write(output)
     f.close
-    sendAttachments(imgPath, file)
+    sendAttachments(imgPath, file,label,confidence)
 
 
 
@@ -179,12 +182,12 @@ def main():
    
     
     #cap = cv2.VideoCapture(0)                                      # Uncomment to use Webcam
-    cap = cv2.VideoCapture("ups02.avi")                             # Local Stored video detection - Set input video
+    cap = cv2.VideoCapture("./sampleData/usps03.avi")                             # Local Stored video detection - Set input video
     frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
     frame_height = int(cap.get(4))
     # Set out for video writer
-    dateAndTime=str(datetime.now())
-    outputPath="./sampleData/"+dateAndTime+".avi"
+    fileName = datetime.now().strftime("%B-%d-%y_%H:%M:%S")
+    outputPath="./results/"+fileName+".avi"
     out = cv2.VideoWriter(                                          # Set the Output path for video writer
         outputPath, cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
         (frame_width, frame_height))
@@ -235,12 +238,16 @@ def main():
         cv2.waitKey(3)
         out.write(image)                                             # Write that frame into output video
     # print("detections[0]: " + str(detections[0][0]))
-    cv2.imwrite("snap.jpg",snap)
+    if snap.any():
+      snapPath="./results/"+fileName+".jpg"
+      cv2.imwrite(snapPath,snap)
     cap.release()                                                    # For releasing cap and out. 
     out.release()
     label=str(detection[0][0])
     confidence=float(detection[0][1])
-    logging(label,confidence,"./snap.jpg")
+    if confidence>float(80):
+      # print("confidence > 80")
+      logging(label,confidence,snapPath)
     print(":::Video Write Completed")
 if __name__ == "__main__":
   main()
