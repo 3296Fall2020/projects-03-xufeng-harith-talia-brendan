@@ -23,11 +23,13 @@ def cvDrawBoxes(detections, img):
     }
     
     for detection in detections:
+        # print("detections[0]: " + str(detection[0]))
+        # print("detections[1]: " + str(detection[1]))
         x, y, w, h = detection[2][0],\
             detection[2][1],\
             detection[2][2],\
             detection[2][3]
-        name_tag = str(detection[0].decode())
+        name_tag = str(detection[0])#.decode())
         for name_key, color_val in color_dict.items():
             if name_key == name_tag:
                 color = color_val 
@@ -37,8 +39,8 @@ def cvDrawBoxes(detections, img):
                 pt2 = (xmax, ymax)
                 cv2.rectangle(img, pt1, pt2, color, 1)
                 cv2.putText(img,
-                            detection[0].decode() +
-                            " [" + str(round(detection[1] * 100, 2)) + "]",
+                            detection[0] +
+                            " [" + str(detection[1]) + "]",
                             (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                             color, 2)
     return img
@@ -64,34 +66,10 @@ def YOLO():
             weightPath,
             batch_size=1
         )
-    # if netMain is None:                                             # Checks the metaMain, NetMain and altNames. Loads it in script
-    #     netMain = darknet.load_net_custom(configPath.encode( 
-    #         "ascii"), weightPath.encode("ascii"), 0, 1)             # batch size = 1
-    # if metaMain is None:
-    #     metaMain = darknet.load_meta(metaPath.encode("ascii"))
-    # if altNames is None:
-    #     try:
-    #         with open(metaPath) as metaFH:
-    #             metaContents = metaFH.read()
-    #             import re
-    #             match = re.search("names *= *(.*)$", metaContents,
-    #                               re.IGNORECASE | re.MULTILINE)
-    #             if match:
-    #                 result = match.group(1)
-    #             else:
-    #                 result = None
-    #             try:
-    #                 if os.path.exists(result):
-    #                     with open(result) as namesFH:
-    #                         namesList = namesFH.read().strip().split("\n")
-    #                         altNames = [x.strip() for x in namesList]
-    #             except TypeError:
-    #                 pass
-    #     except Exception:
-    #         pass
+   
     
     #cap = cv2.VideoCapture(0)                                      # Uncomment to use Webcam
-    cap = cv2.VideoCapture("./sampleData/people01.mp4")                             # Local Stored video detection - Set input video
+    cap = cv2.VideoCapture("ups02.avi")                             # Local Stored video detection - Set input video
     frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
     frame_height = int(cap.get(4))
     # Set out for video writer
@@ -103,38 +81,54 @@ def YOLO():
 
     # Create an image we reuse for each detect
     darknet_image = darknet.make_image(frame_width, frame_height, 3) # Create image according darknet for compatibility of network
+    x=float(0)
     while True:                                                      # Load the input frame and write output frame.
         prev_time = time.time()
-        print("line 107 pass")
+        # print("line 107 pass")
         ret, frame_read = cap.read()                                 # Capture frame and return true if frame present
-        print("line 109 pass")
+        # print("line 109 pass")
         # For Assertion Failed Error in OpenCV
         if not ret:                                                  # Check if frame present otherwise he break the while loop
             break
 
         frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)      # Convert frame into RGB from BGR and resize accordingly
-        print("line 116 pass")
+        #print("line 116 pass")
         frame_resized = cv2.resize(frame_rgb,
                                    (frame_width, frame_height),
                                    interpolation=cv2.INTER_LINEAR)
-        print("line 117 pass")
+        #print("line 117 pass")
         darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())                # Copy that frame bytes to darknet_image
-        print("line 121 pass")
+        #print("line 121 pass")
         # detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.5)    # Detection occurs at this line and return detections, for customize we can change the threshold.                                                                                   
-        detections = darknet.detect_image(network, class_names, darknet_image, thresh=0.5)
-        print("line 124 pass")
+        detections = darknet.detect_image(network, class_names, darknet_image, thresh=0.8)
+        #print("line 124 pass")
         image = cvDrawBoxes(detections, frame_resized)               # Call the function cvDrawBoxes() for colored bounding box per class
-        print("line 126 pass")
+        #print("line 126 pass")
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        print("line 128 pass")
-        print(1/(time.time()-prev_time))
-        print("line 130 pass")
-        cv2.imshow('Demo', image)                                    # Display Image window
-        print("line 132 pass")
+        # if detections:
+        #   print(detections[0][1])
+
+        if detections:
+          if float(detections[0][1])>x:
+            snap=image
+            detection=detections
+            x=float(detections[0][1])
+            # x=x+1
+        # print(detections)
+        #print("line 128 pass")
+        # print(1/(time.time()-prev_time))
+        #print("line 130 pass")
+        #cv2.imshow('Demo', image)                                    # Display Image window
+        #print("line 132 pass")
         cv2.waitKey(3)
         out.write(image)                                             # Write that frame into output video
+    # print("detections[0]: " + str(detections[0][0]))
+    cv2.imwrite("snap.jpg",snap)
     cap.release()                                                    # For releasing cap and out. 
     out.release()
+
+    print(detection[0][0])
+    print(detection[0][1])
     print(":::Video Write Completed")
 
 if __name__ == "__main__":  
