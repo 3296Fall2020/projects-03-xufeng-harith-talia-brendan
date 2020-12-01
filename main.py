@@ -183,8 +183,10 @@ def main():
     frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
     frame_height = int(cap.get(4))
     # Set out for video writer
+    dateAndTime=str(datetime.now())
+    outputPath="./sampleData/"+dateAndTime+".avi"
     out = cv2.VideoWriter(                                          # Set the Output path for video writer
-        "./output.avi", cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
+        outputPath, cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
         (frame_width, frame_height))
 
     print("Starting the YOLO loop...")
