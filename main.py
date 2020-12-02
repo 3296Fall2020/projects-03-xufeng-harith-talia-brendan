@@ -96,20 +96,21 @@ k.email_send()"""
 ############################
 #write detections to log file
 ############################
-def logging(label, confidence, imgPath):
-    file = "detection_logs/"
-    file += datetime.today().strftime('%Y-%m-%d')
-    txtFile = file
-    f = open(file, "a")
-    output = datetime.now().strftime('%H:%M') + "\n"
+def logging(label, confidence):
+    logfile = "detection_logs/"
+    logfile += datetime.today().strftime('%Y-%m-%d')
+    txtFile = logfile
+    f = open(logfile, "a")
+    output = datetime.now().strftime('%H:%M')
     if confidence >= float(90):
         output += "\tDelivery driver detected!\n"
     else:
         output += "\tDelivery driver may have been detected!\n"
-    output += "\t\t{}: {}% confident".format(label, confidence) + "\n"
+    output += "\t\t{}: {}% confident".format(label, confidence) + "\n\n" 
     f.write(output)
     f.close
-    sendAttachments(imgPath, file,label,confidence)
+    return logfile
+    # sendAttachments(imgPath, file,label,confidence)
 
 
 
@@ -239,8 +240,8 @@ def main():
       cv2.imwrite(snapPath,snap)
       label=str(detection[0][0])
       confidence=float(detection[0][1])
-      logging(label,confidence,snapPath)
-    
+      logFilePath=logging(label,confidence)
+      sendAttachments(snapPath, logFilePath,label,confidence)
     print("Analyze Completed")
 if __name__ == "__main__":
   main()
