@@ -217,7 +217,8 @@ def main():
             batch_size=1
         )
    
-    
+    # rtsp = rtsp://admin:admin12345@192.168.0.228:554
+    #cap = cv2.VideoCapture(rtsp)                                     To run on camera
     #cap = cv2.VideoCapture(0)                                      # Uncomment to use Webcam
     cap = cv2.VideoCapture(videoInput)                             # Local Stored video detection - Set input video
     frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
