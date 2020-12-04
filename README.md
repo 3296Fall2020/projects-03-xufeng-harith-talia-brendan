@@ -42,3 +42,5 @@ Recently, Father Condron started getting the communion wine delivered to his chu
 ## Demo and Example
 
 ![PayStationUML](https://github.com/3296Fall2020/projects-03-xufeng-harith-talia-brendan/blob/demo/results/predictions01.jpg?raw=true)
+![PayStationUML](https://github.com/3296Fall2020/projects-03-xufeng-harith-talia-brendan/blob/demo/results/predictions02.jpg?raw=true)
+![PayStationUML](https://github.com/3296Fall2020/projects-03-xufeng-harith-talia-brendan/blob/demo/results/predictions03.jpg?raw=true)
