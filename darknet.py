@@ -1,318 +1,284 @@
-#!python3
-"""
-Python 3 wrapper for identifying objects in images
-
-Requires DLL compilation
-
-Both the GPU and no-GPU version should be compiled; the no-GPU version should be renamed "yolo_cpp_dll_nogpu.dll".
-
-On a GPU system, you can force CPU evaluation by any of:
-
-- Set global variable DARKNET_FORCE_CPU to True
-- Set environment variable CUDA_VISIBLE_DEVICES to -1
-- Set environment variable "FORCE_CPU" to "true"
-- Set environment variable "DARKNET_PATH" to path darknet lib .so (for Linux)
-
-Directly viewing or returning bounding-boxed images requires scikit-image to be installed (`pip install scikit-image`)
-
-Original *nix 2.7: https://github.com/pjreddie/darknet/blob/0f110834f4e18b30d5f101bf8f1724c34b7b83db/python/darknet.py
-Windows Python 2.7 version: https://github.com/AlexeyAB/darknet/blob/fc496d52bf22a0bb257300d3c79be9cd80e722cb/build/darknet/x64/darknet.py
-
-@author: Philip Kahn
-@date: 20180503
-"""
-from ctypes import *
-import math
-import random
 import os
+import smtplib
+import imghdr
+import cv2
+import numpy as np
+import time
+import darknet
+import sys
+from email.message import EmailMessage
+from email.mime.text import MIMEText
+from fpdf import FPDF
+from datetime import datetime
+# Early exit
+if len(sys.argv)<2:
+	printf("Enter a video input path!")
+	exit()
+videoInput=sys.argv[1]
+#determine time
+now = datetime.now()
+current_time = now.strftime("%H:%M:%S")
+#email initialization
+EMAIL_USER = "knockknockcis3296@gmail.com"
+EMAIL_PASSWORD = "Cis3296!"
+msg = EmailMessage()
+msg['Subject'] = 'Delivery detected'
+msg['From'] = EMAIL_USER
+with open('userEmail.txt','r') as userEmail:
+	emailAddress = userEmail.read()
+msg['To'] = emailAddress
 
 
-class BOX(Structure):
-    _fields_ = [("x", c_float),
-                ("y", c_float),
-                ("w", c_float),
-                ("h", c_float)]
+#Section to convert a text file to a pdf
+#======================================================================#
+# def txtToPDF(filePath):
+
+# 	pdf = FPDF()
+# 	pdf.add_page()
+# 	pdf.set_font("Arial", size = 10)
+
+# 	f = open(filePath, "r")
+# 	for i in f:
+# 		pdf.cell(0,txt = i, ln = 2)
+
+# 	return pdf.output("./results/output.pdf")
+
+#=======================================================================#
+
+#Section to prepare sending an email
+#=======================================================================#
+def sendIMG(filePath):
+  attachImage(filePath)
+
+def attachImage(filePath):
+  with open(filePath,'rb') as f:
+    file_data=f.read()
+    file_type=imghdr.what(f.name)
+    file_name=f.name
+    msg.add_attachment(file_data,maintype='image',subtype=file_type,filename=file_name)
+
+def sendPDF(filePath):
+  attachPDF(filePath)
+
+def attachPDF(filePath):
+  with open(filePath,'rb') as f:
+    file_data=f.read()
+    file_name=f.name
+    msg.add_attachment(file_data,maintype='application',subtype='octet-stream',filename=file_name)
+
+#Method to send email with attachments as parameters
+def sendAttachments(imgPath, logFilePath,label,confidence):
+  if confidence>float(89.9):
+    msg.set_content('A '+label+' was detected at ' + current_time+ '. Please check attached text file for more information!')
+  else:
+    msg.set_content('Looks like a '+label+' stopped by your door at ' + current_time+ '. Please check attached text file for more information!')
+  sendIMG(imgPath)
+  sendPDF(logFilePath)
+  with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+	  smtp.login(EMAIL_USER, EMAIL_PASSWORD)
+	  smtp.send_message(msg)
+
+#sendAttachments('test.jpg', txtFile)
+"""# Create an object of sendpdf function  
+k = sendpdf(sender_email_address,  
+            receiver_email_address, 
+            sender_email_password, 
+            subject_of_email, 
+            body_of_email, 
+            filename, 
+            location_of_file) 
+  
+# sending an email 
+k.email_send()"""
+
+#=======================================================================#
+
+############################
+#write detections to log file
+############################
+def logging(label, confidence):
+    logfile = "detection_logs/"
+    logfile += datetime.today().strftime('%Y-%m-%d')+".txt"
+    txtFile = logfile
+    f = open(logfile, "a")
+    output = datetime.now().strftime('%H:%M')
+    if confidence >= float(90):
+        output += "\tDelivery driver detected!\n"
+    else:
+        output += "\tDelivery driver may have been detected!\n"
+    output += "\t{}: {}% confident".format(label, confidence) + "\n\n" 
+    f.write(output)
+    f.close
+    return logfile
+    # sendAttachments(imgPath, file,label,confidence)
 
 
-class DETECTION(Structure):
-    _fields_ = [("bbox", BOX),
-                ("classes", c_int),
-                ("prob", POINTER(c_float)),
-                ("mask", POINTER(c_float)),
-                ("objectness", c_float),
-                ("sort_class", c_int),
-                ("uc", POINTER(c_float)),
-                ("points", c_int),
-                ("embeddings", POINTER(c_float)),
-                ("embedding_size", c_int),
-                ("sim", c_float),
-                ("track_id", c_int)]
-
-class DETNUMPAIR(Structure):
-    _fields_ = [("num", c_int),
-                ("dets", POINTER(DETECTION))]
 
 
-class IMAGE(Structure):
-    _fields_ = [("w", c_int),
-                ("h", c_int),
-                ("c", c_int),
-                ("data", POINTER(c_float))]
+#################################################
+# Drawing box on img according to the detection 
+#################################################
+def convert_to_coordinate(x, y, w, h):
+    left = int(round(x - (w / 2)))
+    right = int(round(x + (w / 2)))
+    top = int(round(y - (h / 2)))
+    bot = int(round(y + (h / 2)))
+    return left,right,bot,top
 
 
-class METADATA(Structure):
-    _fields_ = [("classes", c_int),
-                ("names", POINTER(c_char_p))]
+# def cvDrawBoxes(detections, img):
+#     # Colored labels dictionary
+#     color_dict = {
+#         'amazonCourier' : [0, 255, 255], 'fedexCourier': [238, 123, 158], 'ups_courier' : [24, 245, 217], 'uspsCourier' : [224, 119, 227]
+#     }
+    
+#     for detection in detections:
+#         # print("detections[0]: " + str(detection[0]))
+#         # print("detections[1]: " + str(detection[1]))
+#         x, y, w, h = detection[2][0],\
+#             detection[2][1],\
+#             detection[2][2],\
+#             detection[2][3]
+#         name_tag = str(detection[0])#.decode())
+#         for name_key, color_val in color_dict.items():
+#             if name_key == name_tag:
+#                 color = color_val 
+#                 xmin, ymin, xmax, ymax = convertBack(
+#                 float(x), float(y), float(w), float(h))
+#                 pt1 = (xmin, ymin)
+#                 pt2 = (xmax, ymax)
+#                 cv2.rectangle(img, pt1, pt2, color, 1)
+#                 cv2.putText(img,
+#                             detection[0] +
+#                             " [" + str(detection[1]) + "]",
+#                             (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+#                             color, 2)
+#     return img
+def drawBoxes(detections,img):
+  box_color = {
+    'amazonCourier':[0,168,225],'fedexCourier':[75,19,136],'ups_courier':[46,20,6],'uspsCourier':[36,60,141]
+  }
+  text_color = {
+    'amazonCourier':[255,255,255],'fedexCourier':[240,80,15],'ups_courier':[242,178,10],'uspsCourier':[255,255,255]
+  }
+  formal_label = {
+    'amazonCourier':'Amazon courier','fedexCourier':'Fedex courier','ups_courier':'UPS driver','uspsCourier':'USPS Driver'
+  }
+  for detection in detections:
+    label=str(detection[0])
+    frame_color=box_color[label]
+    msg_color=text_color[label]
+    tag = formal_label[label]
+    x, y, w, h = detection[2][0],\
+                 detection[2][1],\
+                 detection[2][2],\
+                 detection[2][3]
+    left,right,bot,top = convert_to_coordinate(float(x), float(y), float(w), float(h))
+    pt1=(left,bot)
+    pt2=(right,top)
+    msg = tag+' ' + str(detection[1])+ '%'
+    (text_width, text_height) = cv2.getTextSize(msg, cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.9,thickness=2)[0]
+    cv2.rectangle(img,
+                  pt1,(left+text_width,bot-text_height-10),
+                  frame_color,
+                  cv2.FILLED)
+    cv2.rectangle(img,
+                  pt1,pt2,
+                  frame_color,
+                  2)
+    cv2.putText(img,
+                 msg,
+                 (left,bot - 5), 
+                 cv2.FONT_HERSHEY_SIMPLEX, 
+                 0.9, 
+                 msg_color,2)
+  return img
+##################################
+#The main part
+##################################
+def main():  
+    # YOLO and darknetconfiguration
+    configPath = "./cfg/knockknock_cfg.cfg"                                 # Path to cfg
+    weightPath = "./knockknock_cfg_best.weights"                                 # Path to weights
+    metaPath = "./data/obj.data"                                    # Path to meta data
+    if not os.path.exists(configPath):                              # Checks whether file exists otherwise return ValueError
+        raise ValueError("Invalid config path `" +
+                         os.path.abspath(configPath)+"`")
+    if not os.path.exists(weightPath):
+        raise ValueError("Invalid weight path `" +
+                         os.path.abspath(weightPath)+"`")
+    if not os.path.exists(metaPath):
+        raise ValueError("Invalid data file path `" +
+                         os.path.abspath(metaPath)+"`")
+    network, class_names, class_colors = darknet.load_network(
+            configPath,
+            metaPath,
+            weightPath,
+            batch_size=1
+        )
+   
+    
+    #cap = cv2.VideoCapture(0)                                      # Uncomment to use Webcam
+    cap = cv2.VideoCapture(videoInput)                             # Local Stored video detection - Set input video
+    frame_width = int(cap.get(3))                                   # Returns the width and height of capture video
+    frame_height = int(cap.get(4))
+    # Set out for video writer
+    fileName = datetime.now().strftime("%B-%d-%y_%H:%M:%S")
+    outputPath="./results/"+fileName+".avi"
+    out = cv2.VideoWriter(                                          # Set the Output path for video writer
+        outputPath, cv2.VideoWriter_fourcc(*"MJPG"), 10.0,
+        (frame_width, frame_height))
+
+    print("Analyze starts..")
+
+    darknet_image = darknet.make_image(frame_width, frame_height, 3) # Create image according darknet for compatibility of network
+    x=float(0)
+    while True:                                                      # Load the input frame and write output frame.
+        prev_time = time.time()
+        # print("line 107 pass")
+        ret, frame_read = cap.read()                                 # Capture frame and return true if frame present
+        # print("line 109 pass")
+        # For Assertion Failed Error in OpenCV
+        if not ret:                                                  # Check if frame present otherwise he break the while loop
+            break
+
+        frame_rgb = cv2.cvtColor(frame_read, cv2.COLOR_BGR2RGB)      # Convert frame into RGB from BGR and resize accordingly
+        #print("line 116 pass")
+        frame_resized = cv2.resize(frame_rgb,
+                                   (frame_width, frame_height),
+                                   interpolation=cv2.INTER_LINEAR)
+        #print("line 117 pass")
+        darknet.copy_image_from_bytes(darknet_image,frame_resized.tobytes())                # Copy that frame bytes to darknet_image
+        #print("line 121 pass")
+        # detections = darknet.detect_image(netMain, metaMain, darknet_image, thresh=0.5)    # Detection occurs at this line and return detections, for customize we can change the threshold.                                                                                   
+        detections = darknet.detect_image(network, class_names, darknet_image, thresh=0.8)
+        #print("line 124 pass")
+        image = drawBoxes(detections, frame_resized)               # Call the function cvDrawBoxes() for colored bounding box per class
+        #print("line 126 pass")
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
-def network_width(net):
-    return lib.network_width(net)
+        if detections:
+          if float(detections[0][1])>x:
+            snap=image
+            detection=detections
+            x=float(detections[0][1])
+           
+        # print(1/(time.time()-prev_time))
+        #cv2.imshow('Demo', image)                                    # Display Image window
+        cv2.waitKey(3)
+        out.write(image)                                             # Write that frame into output video
+    # print("detections[0]: " + str(detections[0][0]))
+    cap.release()                                                    # For releasing cap and out. 
+    out.release()
+    if x>float(80):
+      snapPath="./results/"+fileName+".jpg"
+      cv2.imwrite(snapPath,snap)
+      label=str(detection[0][0])
+      confidence=float(detection[0][1])
+      logFilePath=logging(label,confidence)
+      sendAttachments(snapPath, logFilePath,label,confidence)
+    print("Analyze Completed")
+if __name__ == "__main__":
+  main()
 
-
-def network_height(net):
-    return lib.network_height(net)
-
-
-def bbox2points(bbox):
-    """
-    From bounding box yolo format
-    to corner points cv2 rectangle
-    """
-    x, y, w, h = bbox
-    xmin = int(round(x - (w / 2)))
-    xmax = int(round(x + (w / 2)))
-    ymin = int(round(y - (h / 2)))
-    ymax = int(round(y + (h / 2)))
-    return xmin, ymin, xmax, ymax
-
-
-def class_colors(names):
-    """
-    Create a dict with one random BGR color for each
-    class name
-    """
-    return {name: (
-        random.randint(0, 255),
-        random.randint(0, 255),
-        random.randint(0, 255)) for name in names}
-
-
-def load_network(config_file, data_file, weights, batch_size=1):
-    """
-    load model description and weights from config files
-    args:
-        config_file (str): path to .cfg model file
-        data_file (str): path to .data model file
-        weights (str): path to weights
-    returns:
-        network: trained model
-        class_names
-        class_colors
-    """
-    network = load_net_custom(
-        config_file.encode("ascii"),
-        weights.encode("ascii"), 0, batch_size)
-    metadata = load_meta(data_file.encode("ascii"))
-    class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
-    colors = class_colors(class_names)
-    return network, class_names, colors
-
-
-def print_detections(detections, coordinates=False):
-    print("\nObjects:")
-    for label, confidence, bbox in detections:
-        x, y, w, h = bbox
-        if coordinates:
-            print("{}: {}%    (left_x: {:.0f}   top_y:  {:.0f}   width:   {:.0f}   height:  {:.0f})".format(label, confidence, x, y, w, h))
-        else:
-            print("{}: {}%".format(label, confidence))
-
-
-def draw_boxes(detections, image, colors):
-    import cv2
-    for label, confidence, bbox in detections:
-        left, top, right, bottom = bbox2points(bbox)
-        cv2.rectangle(image, (left, top), (right, bottom), colors[label], 1)
-        cv2.putText(image, "{} [{:.2f}]".format(label, float(confidence)),
-                    (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    colors[label], 2)
-    return image
-
-
-def decode_detection(detections):
-    decoded = []
-    for label, confidence, bbox in detections:
-        confidence = str(round(confidence * 100, 2))
-        decoded.append((str(label), confidence, bbox))
-    return decoded
-
-
-def remove_negatives(detections, class_names, num):
-    """
-    Remove all classes with 0% confidence within the detection
-    """
-    predictions = []
-    for j in range(num):
-        for idx, name in enumerate(class_names):
-            if detections[j].prob[idx] > 0:
-                bbox = detections[j].bbox
-                bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
-                predictions.append((name, detections[j].prob[idx], (bbox)))
-    return predictions
-
-
-def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-    """
-        Returns a list with highest confidence class and their bbox
-    """
-    pnum = pointer(c_int(0))
-    predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
-                                   thresh, hier_thresh, None, 0, pnum, 0)
-    num = pnum[0]
-    if nms:
-        do_nms_sort(detections, num, len(class_names), nms)
-    predictions = remove_negatives(detections, class_names, num)
-    predictions = decode_detection(predictions)
-    free_detections(detections, num)
-    return sorted(predictions, key=lambda x: x[1])
-
-
-#  lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
-#  lib = CDLL("libdarknet.so", RTLD_GLOBAL)
-hasGPU = True
-if os.name == "nt":
-    cwd = os.path.dirname(__file__)
-    os.environ['PATH'] = cwd + ';' + os.environ['PATH']
-    winGPUdll = os.path.join(cwd, "yolo_cpp_dll.dll")
-    winNoGPUdll = os.path.join(cwd, "yolo_cpp_dll_nogpu.dll")
-    envKeys = list()
-    for k, v in os.environ.items():
-        envKeys.append(k)
-    try:
-        try:
-            tmp = os.environ["FORCE_CPU"].lower()
-            if tmp in ["1", "true", "yes", "on"]:
-                raise ValueError("ForceCPU")
-            else:
-                print("Flag value {} not forcing CPU mode".format(tmp))
-        except KeyError:
-            # We never set the flag
-            if 'CUDA_VISIBLE_DEVICES' in envKeys:
-                if int(os.environ['CUDA_VISIBLE_DEVICES']) < 0:
-                    raise ValueError("ForceCPU")
-            try:
-                global DARKNET_FORCE_CPU
-                if DARKNET_FORCE_CPU:
-                    raise ValueError("ForceCPU")
-            except NameError as cpu_error:
-                print(cpu_error)
-        if not os.path.exists(winGPUdll):
-            raise ValueError("NoDLL")
-        lib = CDLL(winGPUdll, RTLD_GLOBAL)
-    except (KeyError, ValueError):
-        hasGPU = False
-        if os.path.exists(winNoGPUdll):
-            lib = CDLL(winNoGPUdll, RTLD_GLOBAL)
-            print("Notice: CPU-only mode")
-        else:
-            # Try the other way, in case no_gpu was compile but not renamed
-            lib = CDLL(winGPUdll, RTLD_GLOBAL)
-            print("Environment variables indicated a CPU run, but we didn't find {}. Trying a GPU run anyway.".format(winNoGPUdll))
-else:
-    lib = CDLL(os.path.join(
-        os.environ.get('DARKNET_PATH', './'),
-        "libdarknet.so"), RTLD_GLOBAL)
-lib.network_width.argtypes = [c_void_p]
-lib.network_width.restype = c_int
-lib.network_height.argtypes = [c_void_p]
-lib.network_height.restype = c_int
-
-copy_image_from_bytes = lib.copy_image_from_bytes
-copy_image_from_bytes.argtypes = [IMAGE,c_char_p]
-
-predict = lib.network_predict_ptr
-predict.argtypes = [c_void_p, POINTER(c_float)]
-predict.restype = POINTER(c_float)
-
-if hasGPU:
-    set_gpu = lib.cuda_set_device
-    set_gpu.argtypes = [c_int]
-
-init_cpu = lib.init_cpu
-
-make_image = lib.make_image
-make_image.argtypes = [c_int, c_int, c_int]
-make_image.restype = IMAGE
-
-get_network_boxes = lib.get_network_boxes
-get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
-get_network_boxes.restype = POINTER(DETECTION)
-
-make_network_boxes = lib.make_network_boxes
-make_network_boxes.argtypes = [c_void_p]
-make_network_boxes.restype = POINTER(DETECTION)
-
-free_detections = lib.free_detections
-free_detections.argtypes = [POINTER(DETECTION), c_int]
-
-free_batch_detections = lib.free_batch_detections
-free_batch_detections.argtypes = [POINTER(DETNUMPAIR), c_int]
-
-free_ptrs = lib.free_ptrs
-free_ptrs.argtypes = [POINTER(c_void_p), c_int]
-
-network_predict = lib.network_predict_ptr
-network_predict.argtypes = [c_void_p, POINTER(c_float)]
-
-reset_rnn = lib.reset_rnn
-reset_rnn.argtypes = [c_void_p]
-
-load_net = lib.load_network
-load_net.argtypes = [c_char_p, c_char_p, c_int]
-load_net.restype = c_void_p
-
-load_net_custom = lib.load_network_custom
-load_net_custom.argtypes = [c_char_p, c_char_p, c_int, c_int]
-load_net_custom.restype = c_void_p
-
-free_network_ptr = lib.free_network_ptr
-free_network_ptr.argtypes = [c_void_p]
-free_network_ptr.restype = c_void_p
-
-do_nms_obj = lib.do_nms_obj
-do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
-
-do_nms_sort = lib.do_nms_sort
-do_nms_sort.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
-
-free_image = lib.free_image
-free_image.argtypes = [IMAGE]
-
-letterbox_image = lib.letterbox_image
-letterbox_image.argtypes = [IMAGE, c_int, c_int]
-letterbox_image.restype = IMAGE
-
-load_meta = lib.get_metadata
-lib.get_metadata.argtypes = [c_char_p]
-lib.get_metadata.restype = METADATA
-
-load_image = lib.load_image_color
-load_image.argtypes = [c_char_p, c_int, c_int]
-load_image.restype = IMAGE
-
-rgbgr_image = lib.rgbgr_image
-rgbgr_image.argtypes = [IMAGE]
-
-predict_image = lib.network_predict_image
-predict_image.argtypes = [c_void_p, IMAGE]
-predict_image.restype = POINTER(c_float)
-
-predict_image_letterbox = lib.network_predict_image_letterbox
-predict_image_letterbox.argtypes = [c_void_p, IMAGE]
-predict_image_letterbox.restype = POINTER(c_float)
-
-network_predict_batch = lib.network_predict_batch
-network_predict_batch.argtypes = [c_void_p, IMAGE, c_int, c_int, c_int,
-                                   c_float, c_float, POINTER(c_int), c_int, c_int]
-network_predict_batch.restype = POINTER(DETNUMPAIR)
